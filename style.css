@@ -1,4 +1,4 @@
-/* Global styles */
+/* ===== GENERAL ===== */
 body {
   margin: 0;
   font-family: monospace;
@@ -6,7 +6,7 @@ body {
   color: #333;
 }
 
-/* Container for all pages */
+/* ===== CONTAINER / ETUSIVU ===== */
 .container {
   max-width: 800px;
   margin: 40px auto;
@@ -48,10 +48,10 @@ footer {
   color: #777;
 }
 
-/* Topology and simulator UI */
+/* ===== TOPOLOGY / SIMULATOR ===== */
 #topology {
   height: 400px;
-  background: #fff;
+  background: #ffffff;
   border-bottom: 1px solid #ccc;
   position: relative;
 }
@@ -65,6 +65,7 @@ footer {
   font-weight: bold;
 }
 
+/* ===== CLI PANEL ===== */
 #cli-panel {
   display: flex;
   flex-direction: column;
@@ -93,4 +94,67 @@ footer {
   border-radius: 4px;
 }
 
-#cli-header button
+#cli-header button:hover {
+  background: #666;
+}
+
+#output {
+  flex-grow: 1;
+  background: black;
+  padding: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+#inputArea {
+  display: flex;
+  align-items: center;
+  padding-top: 5px;
+  border-top: 1px solid #333;
+}
+
+#promptText {
+  margin-right: 5px;
+  white-space: nowrap;
+}
+
+#commandInput {
+  flex-grow: 1;
+  background: black;
+  color: #0f0;
+  border: none;
+  outline: none;
+  font-size: 1em;
+  padding: 5px;
+}
+
+/* ===== SVG TOPOLOGY ===== */
+svg {
+  width: 100%;
+  height: 100%;
+}
+
+svg circle,
+svg rect {
+  cursor: pointer;
+  stroke: #222;
+  stroke-width: 2px;
+  fill: #66aaff;
+}
+
+svg circle:hover,
+svg rect:hover {
+  fill: #5599dd;
+}
+
+svg text {
+  font-size: 12px;
+  fill: #000;
+  pointer-events: none;
+}
+
+svg line {
+  stroke: #888;
+  stroke-width: 2px;
+}
