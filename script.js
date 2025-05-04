@@ -1,192 +1,148 @@
-const promptText = document.getElementById('promptText');
 const commandInput = document.getElementById('commandInput');
 const output = document.getElementById('output');
+const promptText = document.getElementById('promptText');
+const tasksContainer = document.getElementById('tasks');
 
+let currentDevice = 'R1';
 let mode = 'exec';
 let currentInterface = null;
 
-let commandHistory = [];
-let historyIndex = -1;
-
-const deviceConfig = {
-  hostname: "Router",
-  interfaces: {
-    "GigabitEthernet0/1": { ip: null, up: false },
-    "FastEthernet0/1": { ip: null, up: false },
-    "Vlan1": { ip: null, up: false }
-  }
-};
-
-const commands = {
-  'enable': ['en'],
-  'configure terminal': ['conf t'],
-  'interface GigabitEthernet0/1': ['int gi0/1'],
-  'interface FastEthernet0/1': ['int fa0/1'],
-  'interface Vlan1': ['int vlan1'],
-  'ip address': [],
-  'no shutdown': ['no shut'],
-  'shutdown': [],
-  'exit': [],
-  'hostname': [],
-  'show running-config': []
-};
-
-function updatePrompt() {
-  switch (mode) {
-    case 'exec': promptText.textContent = `${deviceConfig.hostname}>`; break;
-    case 'enable': promptText.textContent = `${deviceConfig.hostname}#`; break;
-    case 'config': promptText.textContent = `${deviceConfig.hostname}(config)#`; break;
-    case 'interface': promptText.textContent = `${deviceConfig.hostname}(config-if)#`; break;
-  }
-}
-
-function printOutput(line) {
-  const lineDiv = document.createElement('div');
-  lineDiv.textContent = line;
-  output.prepend(lineDiv);
-}
-
-function normalize(cmd) {
-  return cmd.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-function matchCommand(cmd) {
-  const input = normalize(cmd);
-  for (const fullCmd in commands) {
-    if (normalize(fullCmd) === input) return fullCmd;
-    if (commands[fullCmd].some(short => normalize(short) === input)) return fullCmd;
-  }
-  return null;
-}
-
-function autoComplete(inputValue) {
-  const matches = Object.keys(commands).filter(c =>
-    c.toLowerCase().startsWith(inputValue.toLowerCase()));
-  return matches.length === 1 ? matches[0] : null;
-}
-
-function processCommand(input) {
-  const normalized = normalize(input);
-  const matched = matchCommand(input);
-  printOutput(`${promptText.textContent} ${input}`);
-
-  if (normalized === 'show running-config') {
-    printOutput('Building configuration...');
-    printOutput('');
-    printOutput(`hostname ${deviceConfig.hostname}`);
-    for (let intf in deviceConfig.interfaces) {
-      let conf = deviceConfig.interfaces[intf];
-      printOutput(`interface ${intf}`);
-      if (conf.ip) printOutput(` ip address ${conf.ip}`);
-      if (conf.up) printOutput(` no shutdown`);
-      else printOutput(` shutdown`);
+let deviceConfigs = {
+  R1: {
+    hostname: 'R1',
+    interfaces: { 'GigabitEthernet0/1': { ip: null, up: false } }
+  },
+  R2: {
+    hostname: 'R2',
+    interfaces: { 'GigabitEthernet0/1': { ip: null, up: false } }
+  },
+  S1: {
+    hostname: 'S1',
+    interfaces: {
+      'FastEthernet0/1': { ip: null, up: false },
+      'Vlan1': { ip: '192.168.1.2', up: true }
     }
-    printOutput('end');
-    return;
+  },
+  PC1: {
+    hostname: 'PC1',
+    interfaces: { 'Ethernet0': { ip: '192.168.1.100', up: true } }
   }
+};
 
-  switch (mode) {
-    case 'exec':
-      if (matched === 'enable') {
-        mode = 'enable';
-      } else {
-        printOutput('% Invalid command at this level.');
-      }
-      break;
-
-    case 'enable':
-      if (matched === 'configure terminal') {
-        mode = 'config';
-      } else if (normalized === 'disable') {
-        mode = 'exec';
-      } else {
-        printOutput('% Unknown command.');
-      }
-      break;
-
-    case 'config':
-      if (normalized.startsWith('interface')) {
-        const iface = input.split(' ')[1];
-        if (deviceConfig.interfaces[iface]) {
-          mode = 'interface';
-          currentInterface = iface;
-        } else {
-          printOutput('% Invalid interface.');
-        }
-      } else if (normalized.startsWith('hostname')) {
-        const newName = input.split(' ')[1];
-        deviceConfig.hostname = newName;
-      } else if (matched === 'exit') {
-        mode = 'enable';
-      } else {
-        printOutput('% Invalid configuration command.');
-      }
-      break;
-
-    case 'interface':
-      if (normalized.startsWith('ip address')) {
-        const parts = input.split(' ');
-        const ip = parts[2];
-        const mask = parts[3];
-        if (deviceConfig.interfaces[currentInterface]) {
-          deviceConfig.interfaces[currentInterface].ip = `${ip} ${mask}`;
-        }
-      } else if (matched === 'no shutdown') {
-        deviceConfig.interfaces[currentInterface].up = true;
-      } else if (matched === 'shutdown') {
-        deviceConfig.interfaces[currentInterface].up = false;
-      } else if (matched === 'exit') {
-        mode = 'config';
-        currentInterface = null;
-      } else {
-        printOutput('% Unknown interface command.');
-      }
-      break;
-
-    default:
-      printOutput('% Internal error.');
+const tasks = [
+  {
+    text: 'Anna R1:lle IP osoite Gi0/1:lle ja käynnistä se',
+    check: () =>
+      deviceConfigs['R1'].interfaces['GigabitEthernet0/1'].ip &&
+      deviceConfigs['R1'].interfaces['GigabitEthernet0/1'].up
+  },
+  {
+    text: 'Tarkista onko Vlan1 aktiivinen S1:llä',
+    check: () => deviceConfigs['S1'].interfaces['Vlan1'].up
+  },
+  {
+    text: 'Varmista, että PC1:n Ethernet0 on UP',
+    check: () => deviceConfigs['PC1'].interfaces['Ethernet0'].up
   }
+];
 
-  updatePrompt();
+function renderTasks() {
+  tasksContainer.innerHTML = '';
+  tasks.forEach((task) => {
+    const el = document.createElement('div');
+    el.className = 'task';
+    const done = task.check() ? 'done' : 'pending';
+    el.innerHTML = `• ${task.text} <span class="${done}">${
+      done === 'done' ? 'Valmis' : 'Keskeneräinen'
+    }</span>`;
+    tasksContainer.appendChild(el);
+  });
+}
+
+function print(line) {
+  const div = document.createElement('div');
+  div.textContent = line;
+  output.prepend(div);
+}
+
+function selectDevice(name) {
+  currentDevice = name;
+  promptText.textContent = `${deviceConfigs[name].hostname}>`;
+  mode = 'exec';
+  currentInterface = null;
+  print(`* Yhdistetty laitteeseen ${name}`);
 }
 
 commandInput.addEventListener('keydown', function (e) {
-  if (e.key === 'Tab') {
-    e.preventDefault();
-    const suggestion = autoComplete(commandInput.value);
-    if (suggestion) {
-      commandInput.value = suggestion;
-    }
-  }
-
   if (e.key === 'Enter') {
-    const value = commandInput.value.trim();
-    if (value !== '') {
-      processCommand(value);
-      commandHistory.push(value);
-      historyIndex = commandHistory.length;
-      commandInput.value = '';
-    }
-  }
+    const input = commandInput.value.trim();
+    commandInput.value = '';
+    print(`${promptText.textContent} ${input}`);
 
-  if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    if (historyIndex > 0) {
-      historyIndex--;
-      commandInput.value = commandHistory[historyIndex];
-    }
-  }
+    const config = deviceConfigs[currentDevice];
 
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    if (historyIndex < commandHistory.length - 1) {
-      historyIndex++;
-      commandInput.value = commandHistory[historyIndex];
+    if (input === 'enable') {
+      mode = 'enable';
+      promptText.textContent = `${config.hostname}#`;
+    } else if (input === 'configure terminal' && mode === 'enable') {
+      mode = 'config';
+      promptText.textContent = `${config.hostname}(config)#`;
+    } else if (input.startsWith('interface ') && mode === 'config') {
+      const intf = input.split(' ')[1];
+      if (config.interfaces[intf]) {
+        currentInterface = intf;
+        mode = 'interface';
+        promptText.textContent = `${config.hostname}(config-if)#`;
+      } else {
+        print('% Invalid interface');
+      }
+    } else if (
+      input.startsWith('ip address') &&
+      mode === 'interface' &&
+      currentInterface
+    ) {
+      const parts = input.split(' ');
+      const ip = parts[2];
+      config.interfaces[currentInterface].ip = ip;
+      print(`* IP-osoite asetettu: ${ip}`);
+    } else if (
+      (input === 'no shutdown' || input === 'no shut') &&
+      mode === 'interface' &&
+      currentInterface
+    ) {
+      config.interfaces[currentInterface].up = true;
+      print(`* ${currentInterface} aktivoitu`);
+    } else if (input === 'exit') {
+      if (mode === 'interface') {
+        mode = 'config';
+        currentInterface = null;
+        promptText.textContent = `${config.hostname}(config)#`;
+      } else if (mode === 'config') {
+        mode = 'enable';
+        promptText.textContent = `${config.hostname}#`;
+      } else if (mode === 'enable') {
+        mode = 'exec';
+        promptText.textContent = `${config.hostname}>`;
+      }
+    } else if (input === 'show ip interface brief') {
+      print('Interface\t\tIP-Address\t\tStatus');
+      for (const [intf, conf] of Object.entries(config.interfaces)) {
+        print(
+          `${intf}\t${conf.ip || 'unassigned'}\t\t${
+            conf.up ? 'up' : 'administratively down'
+          }`
+        );
+      }
+    } else if (input === '?') {
+      print('Saatavilla komennot:');
+      print('- enable, configure terminal, interface, ip address, no shutdown, exit');
+      print('- show ip interface brief');
     } else {
-      historyIndex = commandHistory.length;
-      commandInput.value = '';
+      print('% Tuntematon komento');
     }
+
+    renderTasks();
   }
 });
 
-updatePrompt();
+renderTasks();
