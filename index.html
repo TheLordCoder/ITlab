@@ -1,30 +1,17 @@
 <!DOCTYPE html>
-<html lang="fi">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Packet Tracer -tyylinen simulaattori</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Network CLI Simulator</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="app">
-    <div id="topology">
-      <svg id="network-svg" width="100%" height="100%"></svg>
-    </div>
+  <div id="app"></div>
 
-    <div id="cli-panel">
-      <div id="cli-header">
-        <span id="cli-title">CLI</span>
-        <button onclick="closeCli()">Sulje</button>
-      </div>
-      <div id="output"></div>
-      <div id="inputArea">
-        <span id="promptText">R1&gt;</span>
-        <input type="text" id="commandInput" autocomplete="off" />
-      </div>
-    </div>
-  </div>
-
-  <script src="script.js"></script>
+  <!-- Main logic -->
+  <script src="scrip.js"></script>
+  <!-- Exercises registered separately -->
+  <script src="exercises.js"></script>
 </body>
 </html>
