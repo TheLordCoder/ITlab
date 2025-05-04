@@ -17,9 +17,141 @@
       <li><a href="pages/routing.html">Routing Basics</a></li>
     </ul>
 
+    <hr />
+    <h2>🧪 Lab</h2>
+    <p>Build your own network and experiment freely.<br />
+       <strong>Tips:</strong> Click to open CLI, Shift+Click to remove a device, drag to move devices.</p>
+
+    <div style="margin-bottom: 10px;">
+      <button onclick="addLabDevice('router')">Add Router</button>
+      <button onclick="addLabDevice('switch')">Add Switch</button>
+      <button onclick="clearLab()">Clear All</button>
+    </div>
+
+    <div id="lab">
+      <div id="topology">
+        <svg id="network-svg"></svg>
+      </div>
+      <div id="cli-panel" style="display: none;">
+        <div id="cli-header">
+          <span id="cli-title">CLI</span>
+          <button onclick="closeCli()">Close</button>
+        </div>
+        <div id="output"></div>
+        <div id="inputArea">
+          <span id="promptText"></span>
+          <input type="text" id="commandInput" autocomplete="off" />
+        </div>
+      </div>
+    </div>
+
     <footer>
       <p>&copy; 2025 NetworkSim. All rights reserved.</p>
     </footer>
   </div>
-</body>
-</html>
+
+  <script src="script.js"></script>
+
+  <script>
+    // === LAB ENVIRONMENT ===
+    let labDevices = {};
+    let labLinks = [];
+    let deviceCounter = 1;
+    let linkSelection = [];
+    let draggedDevice = null;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    function addLabDevice(type) {
+      const name = type === 'router' ? `R${deviceCounter}` : `S${deviceCounter}`;
+      const x = 100 + (deviceCounter * 80);
+      const y = 150;
+      labDevices[name] = createDevice(type, x, y, name);
+      deviceCounter++;
+      drawLab();
+    }
+
+    function clearLab() {
+      labDevices = {};
+      labLinks = [];
+      deviceCounter = 1;
+      drawLab();
+      document.getElementById('cli-panel').style.display = 'none';
+    }
+
+    function deleteDevice(name) {
+      delete labDevices[name];
+      labLinks = labLinks.filter(([a, b]) => a !== name && b !== name);
+      drawLab();
+      document.getElementById('cli-panel').style.display = 'none';
+    }
+
+    function drawLab() {
+      const svg = document.getElementById('network-svg');
+      svg.innerHTML = '';
+
+      // Draw links
+      labLinks.forEach(([a, b]) => {
+        if (labDevices[a] && labDevices[b]) {
+          const da = labDevices[a];
+          const db = labDevices[b];
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', da.x);
+          line.setAttribute('y1', da.y);
+          line.setAttribute('x2', db.x);
+          line.setAttribute('y2', db.y);
+          svg.appendChild(line);
+        }
+      });
+
+      // Draw devices
+      for (const [name, dev] of Object.entries(labDevices)) {
+        const node = dev.shape === 'circle'
+          ? document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+          : document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+
+        if (dev.shape === 'circle') {
+          node.setAttribute('cx', dev.x);
+          node.setAttribute('cy', dev.y);
+          node.setAttribute('r', 20);
+        } else {
+          node.setAttribute('x', dev.x - 20);
+          node.setAttribute('y', dev.y - 20);
+          node.setAttribute('width', 40);
+          node.setAttribute('height', 40);
+        }
+
+        node.addEventListener('mousedown', (e) => {
+          if (e.shiftKey) {
+            deleteDevice(name);
+          } else {
+            draggedDevice = name;
+            offsetX = e.offsetX - dev.x;
+            offsetY = e.offsetY - dev.y;
+          }
+        });
+
+        node.addEventListener('mouseup', (e) => {
+          if (!draggedDevice && !e.shiftKey) handleLabClick(name);
+          draggedDevice = null;
+        });
+
+        svg.appendChild(node);
+
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('x', dev.x - 10);
+        label.setAttribute('y', dev.y + 35);
+        label.textContent = name;
+        svg.appendChild(label);
+      }
+    }
+
+    function handleLabClick(name) {
+      if (linkSelection.length === 1 && linkSelection[0] !== name) {
+        labLinks.push([linkSelection[0], name]);
+        linkSelection = [];
+        drawLab();
+        return;
+      }
+
+      linkSelection
