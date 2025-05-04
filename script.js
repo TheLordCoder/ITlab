@@ -2,27 +2,41 @@ const promptText = document.getElementById('promptText');
 const commandInput = document.getElementById('commandInput');
 const output = document.getElementById('output');
 
-let mode = 'exec'; // Tilat: exec, enable, config, interface
-let hostname = 'Router';
-let interfaceUp = false;
-let ipAssigned = false;
+let mode = 'exec';
+let currentInterface = null;
+
+let commandHistory = [];
+let historyIndex = -1;
+
+const deviceConfig = {
+  hostname: "Router",
+  interfaces: {
+    "GigabitEthernet0/1": { ip: null, up: false },
+    "FastEthernet0/1": { ip: null, up: false },
+    "Vlan1": { ip: null, up: false }
+  }
+};
 
 const commands = {
   'enable': ['en'],
   'configure terminal': ['conf t'],
   'interface GigabitEthernet0/1': ['int gi0/1'],
-  'ip address 192.168.1.1 255.255.255.0': [],
+  'interface FastEthernet0/1': ['int fa0/1'],
+  'interface Vlan1': ['int vlan1'],
+  'ip address': [],
   'no shutdown': ['no shut'],
+  'shutdown': [],
   'exit': [],
-  'hostname CoreRouter': []
+  'hostname': [],
+  'show running-config': []
 };
 
 function updatePrompt() {
   switch (mode) {
-    case 'exec': promptText.textContent = `${hostname}>`; break;
-    case 'enable': promptText.textContent = `${hostname}#`; break;
-    case 'config': promptText.textContent = `${hostname}(config)#`; break;
-    case 'interface': promptText.textContent = `${hostname}(config-if)#`; break;
+    case 'exec': promptText.textContent = `${deviceConfig.hostname}>`; break;
+    case 'enable': promptText.textContent = `${deviceConfig.hostname}#`; break;
+    case 'config': promptText.textContent = `${deviceConfig.hostname}(config)#`; break;
+    case 'interface': promptText.textContent = `${deviceConfig.hostname}(config-if)#`; break;
   }
 }
 
@@ -52,79 +66,90 @@ function autoComplete(inputValue) {
 }
 
 function processCommand(input) {
+  const normalized = normalize(input);
   const matched = matchCommand(input);
   printOutput(`${promptText.textContent} ${input}`);
 
-  if (!matched) {
-    printOutput('% Unknown command or invalid input');
+  if (normalized === 'show running-config') {
+    printOutput('Building configuration...');
+    printOutput('');
+    printOutput(`hostname ${deviceConfig.hostname}`);
+    for (let intf in deviceConfig.interfaces) {
+      let conf = deviceConfig.interfaces[intf];
+      printOutput(`interface ${intf}`);
+      if (conf.ip) printOutput(` ip address ${conf.ip}`);
+      if (conf.up) printOutput(` no shutdown`);
+      else printOutput(` shutdown`);
+    }
+    printOutput('end');
     return;
   }
 
-  switch (matched) {
-    case 'enable':
-      mode = 'enable';
-      break;
-
-    case 'configure terminal':
-      if (mode !== 'enable') {
-        printOutput('% Command only available in privileged EXEC mode');
-        return;
-      }
-      mode = 'config';
-      break;
-
-    case 'interface GigabitEthernet0/1':
-      if (mode !== 'config') {
-        printOutput('% Command only available in global configuration mode');
-        return;
-      }
-      mode = 'interface';
-      break;
-
-    case 'ip address 192.168.1.1 255.255.255.0':
-      if (mode !== 'interface') {
-        printOutput('% Command only available in interface configuration mode');
-        return;
-      }
-      ipAssigned = true;
-      printOutput('');
-      break;
-
-    case 'no shutdown':
-      if (mode !== 'interface') {
-        printOutput('% Command only available in interface configuration mode');
-        return;
-      }
-      interfaceUp = true;
-      printOutput('');
-      break;
-
-    case 'exit':
-      if (mode === 'interface') {
-        mode = 'config';
-      } else if (mode === 'config') {
+  switch (mode) {
+    case 'exec':
+      if (matched === 'enable') {
         mode = 'enable';
-      } else if (mode === 'enable') {
-        mode = 'exec';
+      } else {
+        printOutput('% Invalid command at this level.');
       }
       break;
 
-    case 'hostname CoreRouter':
-      if (mode !== 'config') {
-        printOutput('% Command only available in global configuration mode');
-        return;
+    case 'enable':
+      if (matched === 'configure terminal') {
+        mode = 'config';
+      } else if (normalized === 'disable') {
+        mode = 'exec';
+      } else {
+        printOutput('% Unknown command.');
       }
-      hostname = 'CoreRouter';
+      break;
+
+    case 'config':
+      if (normalized.startsWith('interface')) {
+        const iface = input.split(' ')[1];
+        if (deviceConfig.interfaces[iface]) {
+          mode = 'interface';
+          currentInterface = iface;
+        } else {
+          printOutput('% Invalid interface.');
+        }
+      } else if (normalized.startsWith('hostname')) {
+        const newName = input.split(' ')[1];
+        deviceConfig.hostname = newName;
+      } else if (matched === 'exit') {
+        mode = 'enable';
+      } else {
+        printOutput('% Invalid configuration command.');
+      }
+      break;
+
+    case 'interface':
+      if (normalized.startsWith('ip address')) {
+        const parts = input.split(' ');
+        const ip = parts[2];
+        const mask = parts[3];
+        if (deviceConfig.interfaces[currentInterface]) {
+          deviceConfig.interfaces[currentInterface].ip = `${ip} ${mask}`;
+        }
+      } else if (matched === 'no shutdown') {
+        deviceConfig.interfaces[currentInterface].up = true;
+      } else if (matched === 'shutdown') {
+        deviceConfig.interfaces[currentInterface].up = false;
+      } else if (matched === 'exit') {
+        mode = 'config';
+        currentInterface = null;
+      } else {
+        printOutput('% Unknown interface command.');
+      }
       break;
 
     default:
-      printOutput('% Feature not yet implemented');
+      printOutput('% Internal error.');
   }
 
   updatePrompt();
 }
 
-// TAB-täydennys
 commandInput.addEventListener('keydown', function (e) {
   if (e.key === 'Tab') {
     e.preventDefault();
@@ -133,14 +158,32 @@ commandInput.addEventListener('keydown', function (e) {
       commandInput.value = suggestion;
     }
   }
-});
 
-// ENTER-komento
-commandInput.addEventListener('keydown', function (e) {
   if (e.key === 'Enter') {
     const value = commandInput.value.trim();
     if (value !== '') {
       processCommand(value);
+      commandHistory.push(value);
+      historyIndex = commandHistory.length;
+      commandInput.value = '';
+    }
+  }
+
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (historyIndex > 0) {
+      historyIndex--;
+      commandInput.value = commandHistory[historyIndex];
+    }
+  }
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (historyIndex < commandHistory.length - 1) {
+      historyIndex++;
+      commandInput.value = commandHistory[historyIndex];
+    } else {
+      historyIndex = commandHistory.length;
       commandInput.value = '';
     }
   }
