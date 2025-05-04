@@ -1,57 +1,61 @@
 body {
-  font-family: monospace;
-  background: #111;
-  color: #0f0;
   margin: 0;
-  display: flex;
+  font-family: monospace;
+  background-color: #e8f0f8;
+  overflow: hidden;
 }
 
-#sidebar {
-  width: 250px;
-  background: #222;
-  padding: 10px;
-  border-right: 2px solid #333;
-}
-
-#main {
-  flex-grow: 1;
+#app {
   display: flex;
-  flex-direction: column;
   height: 100vh;
 }
 
 #topology {
-  background: #000;
-  color: white;
-  padding: 10px;
-  border-bottom: 1px solid #444;
+  flex: 1;
+  position: relative;
+  background-color: #ffffff;
+  border-right: 2px solid #ccc;
 }
 
-.device {
-  display: inline-block;
-  padding: 10px;
-  margin: 5px;
-  border: 1px solid #0f0;
-  cursor: pointer;
-}
-
-#terminal {
-  flex-grow: 1;
+#cli-panel {
+  width: 400px;
   display: flex;
   flex-direction: column;
+  background-color: #111;
+  color: #0f0;
   padding: 10px;
-  overflow: hidden;
+}
+
+#cli-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #222;
+  padding: 5px;
+  margin-bottom: 10px;
+}
+
+#cli-header button {
+  background: #333;
+  color: #fff;
+  border: none;
+  padding: 5px;
+  cursor: pointer;
 }
 
 #output {
   flex-grow: 1;
   overflow-y: auto;
+  background-color: black;
+  padding: 10px;
   display: flex;
   flex-direction: column-reverse;
 }
 
 #inputArea {
   display: flex;
+  background-color: #000;
+  padding: 5px;
 }
 
 #promptText {
@@ -67,14 +71,20 @@ body {
   font-size: 1em;
 }
 
-.task {
-  margin-bottom: 10px;
+svg text {
+  font-family: monospace;
+  font-size: 12px;
+  fill: #000;
 }
 
-.done {
-  color: lime;
+svg circle {
+  cursor: pointer;
+  fill: #68a;
+  stroke: #333;
+  stroke-width: 1.5px;
 }
 
-.pending {
-  color: orange;
+svg line {
+  stroke: #aaa;
+  stroke-width: 2px;
 }
