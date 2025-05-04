@@ -1,28 +1,87 @@
-const svg = document.getElementById('network-svg');
-const commandInput = document.getElementById('commandInput');
-const output = document.getElementById('output');
-const promptText = document.getElementById('promptText');
+// Device templates
+const deviceTemplates = {
+  router: {
+    type: 'router',
+    shape: 'circle',
+    interfaces: { 'Gig0/0': { ip: null, up: false } }
+  },
+  switch: {
+    type: 'switch',
+    shape: 'rect',
+    interfaces: { 'Fa0/1': { ip: null, up: false } }
+  }
+};
+
+let exerciseOptions = [];
+function registerExercise(exercise) {
+  exerciseOptions.push(exercise);
+}
+window.registerExercise = registerExercise;
+
+function createDevice(type, x, y, name) {
+  const template = JSON.parse(JSON.stringify(deviceTemplates[type]));
+  return { ...template, x, y, hostname: name };
+}
 
 let currentDevice = null;
 let mode = 'exec';
 let currentInterface = null;
+let currentTask = null;
+let devices = {};
+let links = [];
 
-const devices = {
-  R1: { x: 100, y: 200, hostname: 'R1', interfaces: { 'GigabitEthernet0/1': { ip: '192.168.1.1', up: true } } },
-  S1: { x: 300, y: 200, hostname: 'S1', interfaces: { 'FastEthernet0/1': { ip: null, up: false }, 'Vlan1': { ip: '192.168.1.2', up: true } } },
-  R2: { x: 500, y: 200, hostname: 'R2', interfaces: { 'GigabitEthernet0/1': { ip: '192.168.1.3', up: true } } },
-  PC1: { x: 700, y: 200, hostname: 'PC1', interfaces: { 'Ethernet0': { ip: '192.168.1.100', up: true } } },
-};
+function renderExerciseMenu() {
+  const app = document.getElementById('app');
+  const container = document.createElement('div');
+  container.id = 'exerciseMenu';
+  container.style.padding = '20px';
+  container.innerHTML = '<h2>Select an Exercise</h2>';
 
-const links = [
-  ['R1', 'S1'],
-  ['S1', 'R2'],
-  ['R2', 'PC1']
-];
+  exerciseOptions.forEach((ex, i) => {
+    const btn = document.createElement('button');
+    btn.textContent = ex.name;
+    btn.onclick = () => startExercise(i);
+    btn.style.margin = '10px';
+    container.appendChild(btn);
+  });
+  app.innerHTML = '';
+  app.appendChild(container);
+}
+
+function startExercise(index) {
+  const app = document.getElementById('app');
+  currentTask = exerciseOptions[index];
+  devices = currentTask.devices();
+  links = currentTask.links;
+
+  app.innerHTML = `
+    <div id="topology">
+      <div id="taskbar">
+        <span id="taskText"></span>
+        <span id="taskProgress"></span>
+      </div>
+      <svg id="network-svg" width="100%" height="100%"></svg>
+    </div>
+    <div id="cli-panel">
+      <div id="cli-header">
+        <span id="cli-title">CLI</span>
+        <button onclick="closeCli()">Close</button>
+      </div>
+      <div id="output"></div>
+      <div id="inputArea">
+        <span id="promptText"></span>
+        <input type="text" id="commandInput" autocomplete="off" />
+      </div>
+    </div>
+  `;
+  document.getElementById('commandInput').addEventListener('keydown', handleCommand);
+  drawTopology();
+  updateProgress();
+}
 
 function drawTopology() {
+  const svg = document.getElementById('network-svg');
   svg.innerHTML = '';
-
   links.forEach(([a, b]) => {
     const da = devices[a];
     const db = devices[b];
@@ -33,15 +92,23 @@ function drawTopology() {
     line.setAttribute('y2', db.y);
     svg.appendChild(line);
   });
-
   for (const [name, dev] of Object.entries(devices)) {
-    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    circle.setAttribute('cx', dev.x);
-    circle.setAttribute('cy', dev.y);
-    circle.setAttribute('r', 20);
-    circle.addEventListener('click', () => openCli(name));
-    svg.appendChild(circle);
-
+    if (dev.shape === 'circle') {
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', dev.x);
+      circle.setAttribute('cy', dev.y);
+      circle.setAttribute('r', 20);
+      circle.addEventListener('click', () => openCli(name));
+      svg.appendChild(circle);
+    } else {
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', dev.x - 20);
+      rect.setAttribute('y', dev.y - 20);
+      rect.setAttribute('width', 40);
+      rect.setAttribute('height', 40);
+      rect.addEventListener('click', () => openCli(name));
+      svg.appendChild(rect);
+    }
     const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     label.setAttribute('x', dev.x - 10);
     label.setAttribute('y', dev.y + 35);
@@ -50,7 +117,14 @@ function drawTopology() {
   }
 }
 
-drawTopology();
+function updateProgress() {
+  const taskText = document.getElementById('taskText');
+  const taskProgress = document.getElementById('taskProgress');
+  const total = currentTask.tasks.length;
+  const completed = currentTask.tasks.filter(t => t.check(devices)).length;
+  taskText.textContent = currentTask.tasks.map(t => t.description).join(' | ');
+  taskProgress.textContent = `Completed: ${(completed / total * 100).toFixed(0)}%`;
+}
 
 function openCli(name) {
   currentDevice = name;
@@ -59,7 +133,7 @@ function openCli(name) {
   mode = 'exec';
   currentInterface = null;
   output.innerHTML = '';
-  print(`* Yhdistetty laitteeseen ${name}`);
+  print(`* Connected to ${name}`);
 }
 
 function closeCli() {
@@ -72,77 +146,54 @@ function print(line) {
   output.prepend(div);
 }
 
-function canPing(from, toIP) {
-  for (const dev of Object.values(devices)) {
-    for (const intf of Object.values(dev.interfaces)) {
-      if (intf.ip === toIP && intf.up) return true;
+function handleCommand(e) {
+  if (e.key !== 'Enter') return;
+  const input = commandInput.value.trim();
+  commandInput.value = '';
+  print(`${promptText.textContent} ${input}`);
+
+  const config = devices[currentDevice];
+
+  if (input === 'enable') {
+    mode = 'enable';
+    promptText.textContent = `${config.hostname}#`;
+  } else if (input === 'configure terminal' && mode === 'enable') {
+    mode = 'config';
+    promptText.textContent = `${config.hostname}(config)#`;
+  } else if (input.startsWith('interface ') && mode === 'config') {
+    const intf = input.split(' ')[1];
+    if (config.interfaces[intf]) {
+      currentInterface = intf;
+      mode = 'interface';
+      promptText.textContent = `${config.hostname}(config-if)#`;
+    } else {
+      print('% Invalid interface');
     }
-  }
-  return false;
-}
-
-commandInput.addEventListener('keydown', function (e) {
-  if (e.key === 'Enter') {
-    const input = commandInput.value.trim();
-    commandInput.value = '';
-    print(`${promptText.textContent} ${input}`);
-
-    const config = devices[currentDevice];
-
-    if (input === 'enable') {
+  } else if (input.startsWith('ip address') && mode === 'interface' && currentInterface) {
+    const parts = input.split(' ');
+    const ip = parts[2];
+    config.interfaces[currentInterface].ip = ip;
+    print(`* IP address set: ${ip}`);
+  } else if ((input === 'no shutdown' || input === 'no shut') && mode === 'interface' && currentInterface) {
+    config.interfaces[currentInterface].up = true;
+    print(`* ${currentInterface} enabled`);
+  } else if (input === 'exit') {
+    if (mode === 'interface') {
+      mode = 'config';
+      currentInterface = null;
+      promptText.textContent = `${config.hostname}(config)#`;
+    } else if (mode === 'config') {
       mode = 'enable';
       promptText.textContent = `${config.hostname}#`;
-    } else if (input === 'configure terminal' && mode === 'enable') {
-      mode = 'config';
-      promptText.textContent = `${config.hostname}(config)#`;
-    } else if (input.startsWith('interface ') && mode === 'config') {
-      const intf = input.split(' ')[1];
-      if (config.interfaces[intf]) {
-        currentInterface = intf;
-        mode = 'interface';
-        promptText.textContent = `${config.hostname}(config-if)#`;
-      } else {
-        print('% Invalid interface');
-      }
-    } else if (input.startsWith('ip address') && mode === 'interface' && currentInterface) {
-      const parts = input.split(' ');
-      const ip = parts[2];
-      config.interfaces[currentInterface].ip = ip;
-      print(`* IP-osoite asetettu: ${ip}`);
-    } else if ((input === 'no shutdown' || input === 'no shut') && mode === 'interface' && currentInterface) {
-      config.interfaces[currentInterface].up = true;
-      print(`* ${currentInterface} aktivoitu`);
-    } else if (input === 'exit') {
-      if (mode === 'interface') {
-        mode = 'config';
-        currentInterface = null;
-        promptText.textContent = `${config.hostname}(config)#`;
-      } else if (mode === 'config') {
-        mode = 'enable';
-        promptText.textContent = `${config.hostname}#`;
-      } else if (mode === 'enable') {
-        mode = 'exec';
-        promptText.textContent = `${config.hostname}>`;
-      }
-    } else if (input === 'show ip interface brief') {
-      print('Interface\t\tIP-Address\t\tStatus');
-      for (const [intf, conf] of Object.entries(config.interfaces)) {
-        print(`${intf}\t${conf.ip || 'unassigned'}\t\t${conf.up ? 'up' : 'administratively down'}`);
-      }
-    } else if (input.startsWith('ping ')) {
-      const targetIP = input.split(' ')[1];
-      const success = canPing(currentDevice, targetIP);
-      if (success) {
-        print(`Reply from ${targetIP}: bytes=32 time=1ms TTL=64`);
-      } else {
-        print(`Request timed out.`);
-      }
-    } else if (input === '?') {
-      print('Saatavilla komennot:');
-      print('- enable, configure terminal, interface, ip address, no shutdown, exit');
-      print('- show ip interface brief, ping <ip-osoite>');
-    } else {
-      print('% Tuntematon komento');
+    } else if (mode === 'enable') {
+      mode = 'exec';
+      promptText.textContent = `${config.hostname}>`;
     }
+  } else {
+    print('% Unknown command');
   }
-});
+
+  updateProgress();
+}
+
+document.addEventListener('DOMContentLoaded', renderExerciseMenu);
