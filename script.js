@@ -12,7 +12,7 @@ const deviceTemplates = {
   }
 };
 
-// Global state
+// Exercise support
 let exerciseList = [];
 function registerExercise(exercise) {
   exerciseList.push(exercise);
@@ -24,7 +24,7 @@ function createDevice(type, x, y, name) {
   return { ...template, x, y, hostname: name };
 }
 
-// CLI & Simulation state
+// CLI and simulation state
 let devices = {};
 let links = [];
 let currentDevice = null;
@@ -32,7 +32,6 @@ let currentExercise = null;
 let mode = 'exec';
 let currentInterface = null;
 
-// CLI rendering
 function print(line) {
   const div = document.createElement('div');
   div.textContent = line;
@@ -63,7 +62,6 @@ function closeCli() {
   document.getElementById('cli-panel').style.display = 'none';
 }
 
-// CLI command handler
 function handleCommand(e) {
   if (e.key !== 'Enter') return;
   const input = commandInput.value.trim();
@@ -112,9 +110,10 @@ function handleCommand(e) {
   updateProgress();
 }
 
-// Topology drawing
+// Topology rendering for exercises
 function drawTopology() {
   const svg = document.getElementById('network-svg');
+  if (!svg) return;
   svg.innerHTML = '';
 
   links.forEach(([a, b]) => {
@@ -155,12 +154,11 @@ function drawTopology() {
   }
 }
 
-// Progress tracking
+// Progress tracking (for exercises only)
 function updateProgress() {
   const taskText = document.getElementById('taskText');
   const taskProgress = document.getElementById('taskProgress');
-
-  if (!currentExercise) return;
+  if (!taskText || !currentExercise) return;
 
   const tasks = currentExercise.tasks;
   const total = tasks.length;
@@ -171,7 +169,7 @@ function updateProgress() {
   taskProgress.textContent = `Completed: ${percent}%`;
 }
 
-// Start exercise from external page
+// Called from theory pages
 function startExercise(exercise) {
   currentExercise = exercise;
   devices = exercise.devices();
@@ -186,7 +184,7 @@ function startExercise(exercise) {
       </div>
       <svg id="network-svg"></svg>
     </div>
-    <div id="cli-panel">
+    <div id="cli-panel" style="display: none;">
       <div id="cli-header">
         <span id="cli-title">CLI</span>
         <button onclick="closeCli()">Close</button>
@@ -205,7 +203,7 @@ function startExercise(exercise) {
   updateProgress();
 }
 
-// Auto-start if only one exercise is loaded
+// Auto-start exercise if only one is defined
 window.addEventListener('load', () => {
   if (exerciseList.length === 1) {
     startExercise(exerciseList[0]);
