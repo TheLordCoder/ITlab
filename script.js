@@ -1,4 +1,4 @@
-// Global exercise system
+// Device templates
 const deviceTemplates = {
   router: {
     type: 'router',
@@ -12,6 +12,7 @@ const deviceTemplates = {
   }
 };
 
+// Global state
 let exerciseList = [];
 function registerExercise(exercise) {
   exerciseList.push(exercise);
@@ -19,11 +20,11 @@ function registerExercise(exercise) {
 window.registerExercise = registerExercise;
 
 function createDevice(type, x, y, name) {
-  const base = JSON.parse(JSON.stringify(deviceTemplates[type]));
-  return { ...base, x, y, hostname: name };
+  const template = JSON.parse(JSON.stringify(deviceTemplates[type]));
+  return { ...template, x, y, hostname: name };
 }
 
-// State
+// CLI & Simulation state
 let devices = {};
 let links = [];
 let currentDevice = null;
@@ -31,7 +32,7 @@ let currentExercise = null;
 let mode = 'exec';
 let currentInterface = null;
 
-// Utility
+// CLI rendering
 function print(line) {
   const div = document.createElement('div');
   div.textContent = line;
@@ -48,7 +49,6 @@ function updatePrompt() {
   else if (mode === 'interface') promptText.textContent = `${base}(config-if)#`;
 }
 
-// CLI Panel
 function openCli(name) {
   currentDevice = name;
   mode = 'exec';
@@ -63,7 +63,7 @@ function closeCli() {
   document.getElementById('cli-panel').style.display = 'none';
 }
 
-// Command handler
+// CLI command handler
 function handleCommand(e) {
   if (e.key !== 'Enter') return;
   const input = commandInput.value.trim();
@@ -112,10 +112,11 @@ function handleCommand(e) {
   updateProgress();
 }
 
-// Drawing
+// Topology drawing
 function drawTopology() {
   const svg = document.getElementById('network-svg');
   svg.innerHTML = '';
+
   links.forEach(([a, b]) => {
     const da = devices[a];
     const db = devices[b];
@@ -154,7 +155,7 @@ function drawTopology() {
   }
 }
 
-// Progress
+// Progress tracking
 function updateProgress() {
   const taskText = document.getElementById('taskText');
   const taskProgress = document.getElementById('taskProgress');
@@ -170,7 +171,7 @@ function updateProgress() {
   taskProgress.textContent = `Completed: ${percent}%`;
 }
 
-// Exercise Starter (called from theory pages)
+// Start exercise from external page
 function startExercise(exercise) {
   currentExercise = exercise;
   devices = exercise.devices();
@@ -204,7 +205,7 @@ function startExercise(exercise) {
   updateProgress();
 }
 
-// Optional: auto-start first exercise if only one loaded
+// Auto-start if only one exercise is loaded
 window.addEventListener('load', () => {
   if (exerciseList.length === 1) {
     startExercise(exerciseList[0]);
