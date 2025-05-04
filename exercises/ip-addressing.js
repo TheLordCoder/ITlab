@@ -1,0 +1,160 @@
+/* ===== GENERAL ===== */
+body {
+  margin: 0;
+  font-family: monospace;
+  background-color: #f0f2f5;
+  color: #333;
+}
+
+/* ===== CONTAINER / ETUSIVU ===== */
+.container {
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 0 20px;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+.container h1 {
+  margin-top: 0;
+  font-size: 2em;
+  color: #0077cc;
+}
+
+.topic-list {
+  list-style-type: none;
+  padding: 0;
+}
+
+.topic-list li {
+  margin: 10px 0;
+}
+
+.topic-list a {
+  font-size: 1.2em;
+  color: #0077cc;
+  text-decoration: none;
+}
+
+.topic-list a:hover {
+  text-decoration: underline;
+}
+
+footer {
+  margin-top: 40px;
+  text-align: center;
+  font-size: 0.9em;
+  color: #777;
+}
+
+/* ===== TOPOLOGY / SIMULATOR ===== */
+#topology {
+  height: 400px;
+  background: #ffffff;
+  border-bottom: 1px solid #ccc;
+  position: relative;
+}
+
+#taskbar {
+  padding: 10px;
+  background-color: #eee;
+  border-bottom: 1px solid #ccc;
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+}
+
+/* ===== CLI PANEL ===== */
+#cli-panel {
+  display: flex;
+  flex-direction: column;
+  background: #111;
+  color: #0f0;
+  height: 300px;
+  padding: 10px;
+  font-size: 14px;
+}
+
+#cli-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #222;
+  padding: 5px 10px;
+  margin-bottom: 10px;
+}
+
+#cli-header button {
+  background: #444;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+#cli-header button:hover {
+  background: #666;
+}
+
+#output {
+  flex-grow: 1;
+  background: black;
+  padding: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+#inputArea {
+  display: flex;
+  align-items: center;
+  padding-top: 5px;
+  border-top: 1px solid #333;
+}
+
+#promptText {
+  margin-right: 5px;
+  white-space: nowrap;
+}
+
+#commandInput {
+  flex-grow: 1;
+  background: black;
+  color: #0f0;
+  border: none;
+  outline: none;
+  font-size: 1em;
+  padding: 5px;
+}
+
+/* ===== SVG TOPOLOGY ===== */
+svg {
+  width: 100%;
+  height: 100%;
+}
+
+svg circle,
+svg rect {
+  cursor: pointer;
+  stroke: #222;
+  stroke-width: 2px;
+  fill: #66aaff;
+}
+
+svg circle:hover,
+svg rect:hover {
+  fill: #5599dd;
+}
+
+svg text {
+  font-size: 12px;
+  fill: #000;
+  pointer-events: none;
+}
+
+svg line {
+  stroke: #888;
+  stroke-width: 2px;
+}
