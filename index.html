@@ -1,19 +1,130 @@
+<!-- Tämä on tulevan Cisco CLI -simulaattorin perusta, joka sisältää:
+- Tehtävärakenne ja palaute (2)
+- Show-komennot: show ip interface brief (3)
+- Useita laitteita (6)
+- CLI-apua (7)
+- Graafinen topologia (8)
+-->
 <!DOCTYPE html>
 <html lang="fi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Cisco CLI Simulaattori</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cisco CLI -verkko</title>
+  <style>
+    body { font-family: monospace; background: #111; color: #0f0; margin: 0; display: flex; }
+    #sidebar { width: 250px; background: #222; padding: 10px; border-right: 2px solid #333; }
+    #main { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; }
+    #topology { background: #000; color: white; padding: 10px; border-bottom: 1px solid #444; }
+    .device { display: inline-block; padding: 10px; margin: 5px; border: 1px solid #0f0; cursor: pointer; }
+    #terminal { flex-grow: 1; display: flex; flex-direction: column; padding: 10px; overflow: hidden; }
+    #output { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; }
+    #inputArea { display: flex; }
+    #promptText { margin-right: 5px; }
+    #commandInput { flex-grow: 1; background: black; color: #0f0; border: none; outline: none; font-size: 1em; }
+    .task { margin-bottom: 10px; }
+    .done { color: lime; }
+    .pending { color: orange; }
+  </style>
 </head>
 <body>
-  <div id="terminal">
-    <div id="output"></div>
-    <div id="inputArea">
-      <span id="promptText">Router></span>
-      <input type="text" id="commandInput" autocomplete="off" />
+  <div id="sidebar">
+    <h3>Tehtävät</h3>
+    <div id="tasks"></div>
+    <h3>Laitteet</h3>
+    <div class="device" onclick="selectDevice('R1')">R1 (reititin)</div>
+    <div class="device" onclick="selectDevice('S1')">S1 (switch)</div>
+  </div>
+
+  <div id="main">
+    <div id="topology">
+      Topologia: R1 <--> S1
+    </div>
+
+    <div id="terminal">
+      <div id="output"></div>
+      <div id="inputArea">
+        <span id="promptText">R1></span>
+        <input type="text" id="commandInput" autocomplete="off" />
+      </div>
     </div>
   </div>
-  <script src="script.js"></script>
+
+  <script>
+    const commandInput = document.getElementById('commandInput');
+    const output = document.getElementById('output');
+    const promptText = document.getElementById('promptText');
+    const tasksContainer = document.getElementById('tasks');
+
+    let currentDevice = 'R1';
+    let mode = 'exec';
+    let deviceConfigs = {
+      R1: {
+        hostname: 'R1',
+        interfaces: { 'GigabitEthernet0/1': { ip: '192.168.1.1', up: true } }
+      },
+      S1: {
+        hostname: 'S1',
+        interfaces: { 'FastEthernet0/1': { ip: null, up: false }, 'Vlan1': { ip: '192.168.1.2', up: true } }
+      }
+    };
+
+    const tasks = [
+      { text: 'Tarkista onko Vlan1 aktiivinen S1:llä', check: () => deviceConfigs['S1'].interfaces['Vlan1'].up },
+      { text: 'Varmista, että R1:n Gi0/1 on UP', check: () => deviceConfigs['R1'].interfaces['GigabitEthernet0/1'].up }
+    ];
+
+    function renderTasks() {
+      tasksContainer.innerHTML = '';
+      tasks.forEach((task, i) => {
+        const el = document.createElement('div');
+        el.className = 'task';
+        const done = task.check() ? 'done' : 'pending';
+        el.innerHTML = `• ${task.text} <span class="${done}">${done === 'done' ? 'Valmis' : 'Keskeneräinen'}</span>`;
+        tasksContainer.appendChild(el);
+      });
+    }
+
+    function print(line) {
+      const div = document.createElement('div');
+      div.textContent = line;
+      output.prepend(div);
+    }
+
+    function selectDevice(name) {
+      currentDevice = name;
+      promptText.textContent = `${name}>`;
+      mode = 'exec';
+      print(`* Yhdistetty laitteeseen ${name}`);
+    }
+
+    commandInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        const input = commandInput.value.trim();
+        commandInput.value = '';
+        print(`${promptText.textContent} ${input}`);
+
+        if (input === 'show ip interface brief') {
+          const dev = deviceConfigs[currentDevice];
+          print('Interface		IP-Address	Status');
+          for (const [intf, conf] of Object.entries(dev.interfaces)) {
+            print(`${intf}\t${conf.ip || 'unassigned'}\t${conf.up ? 'up' : 'administratively down'}`);
+          }
+        } else if (input === '?') {
+          print('Saatavilla komennot:');
+          print('- show ip interface brief');
+          print('- exit');
+        } else if (input === 'exit') {
+          print('* Poistuttiin laitteesta.');
+        } else {
+          print('% Tuntematon komento');
+        }
+
+        renderTasks();
+      }
+    });
+
+    renderTasks();
+  </script>
 </body>
 </html>
