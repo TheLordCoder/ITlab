@@ -1,43 +1,59 @@
+/* Global styles */
 body {
   margin: 0;
   font-family: monospace;
   background-color: #f0f2f5;
+  color: #333;
 }
 
-#app {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
+/* Container for all pages */
+.container {
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 0 20px;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
-#exerciseMenu {
-  padding: 2rem;
+.container h1 {
+  margin-top: 0;
+  font-size: 2em;
+  color: #0077cc;
 }
 
-#exerciseMenu h2 {
-  margin-bottom: 1rem;
+.topic-list {
+  list-style-type: none;
+  padding: 0;
 }
 
-#exerciseMenu button {
-  padding: 10px 20px;
-  font-size: 1rem;
-  margin: 5px;
-  border: none;
-  background-color: #0077cc;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
+.topic-list li {
+  margin: 10px 0;
 }
 
-#exerciseMenu button:hover {
-  background-color: #005fa3;
+.topic-list a {
+  font-size: 1.2em;
+  color: #0077cc;
+  text-decoration: none;
 }
 
+.topic-list a:hover {
+  text-decoration: underline;
+}
+
+footer {
+  margin-top: 40px;
+  text-align: center;
+  font-size: 0.9em;
+  color: #777;
+}
+
+/* Topology and simulator UI */
 #topology {
-  flex: 1;
-  position: relative;
+  height: 400px;
   background: #fff;
   border-bottom: 1px solid #ccc;
+  position: relative;
 }
 
 #taskbar {
@@ -77,60 +93,4 @@ body {
   border-radius: 4px;
 }
 
-#cli-header button:hover {
-  background: #666;
-}
-
-#output {
-  flex-grow: 1;
-  background: black;
-  padding: 10px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column-reverse;
-}
-
-#inputArea {
-  display: flex;
-  align-items: center;
-  padding-top: 5px;
-  border-top: 1px solid #333;
-}
-
-#promptText {
-  margin-right: 5px;
-  white-space: nowrap;
-}
-
-#commandInput {
-  flex-grow: 1;
-  background: black;
-  color: #0f0;
-  border: none;
-  outline: none;
-  font-size: 1em;
-  padding: 5px;
-}
-
-svg {
-  width: 100%;
-  height: 100%;
-}
-
-svg circle,
-svg rect {
-  cursor: pointer;
-  stroke: #222;
-  stroke-width: 2px;
-  fill: #66aaff;
-}
-
-svg text {
-  font-size: 12px;
-  fill: #000;
-}
-
-svg line {
-  stroke: #888;
-  stroke-width: 2px;
-}
+#cli-header button
