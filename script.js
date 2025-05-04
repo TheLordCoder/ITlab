@@ -12,7 +12,7 @@ const deviceTemplates = {
   }
 };
 
-// Exercise support
+// Exercise system
 let exerciseList = [];
 function registerExercise(exercise) {
   exerciseList.push(exercise);
@@ -24,13 +24,15 @@ function createDevice(type, x, y, name) {
   return { ...template, x, y, hostname: name };
 }
 
-// CLI and simulation state
+// CLI state
 let devices = {};
 let links = [];
 let currentDevice = null;
 let currentExercise = null;
 let mode = 'exec';
 let currentInterface = null;
+let history = [];
+let historyIndex = -1;
 
 function print(line) {
   const div = document.createElement('div');
@@ -62,33 +64,49 @@ function closeCli() {
   document.getElementById('cli-panel').style.display = 'none';
 }
 
+function matchCommand(input, full) {
+  return full.startsWith(input);
+}
+
 function handleCommand(e) {
   if (e.key !== 'Enter') return;
   const input = commandInput.value.trim();
   commandInput.value = '';
+  if (!input) return;
+
   const config = devices[currentDevice];
   print(`${promptText.textContent} ${input}`);
 
-  if (input === 'enable') {
+  history.push(input);
+  historyIndex = history.length;
+
+  if (matchCommand(input, 'enable')) {
     mode = 'enable';
-  } else if (input === 'configure terminal' && mode === 'enable') {
+  }
+  else if (matchCommand(input, 'configure terminal') && mode === 'enable') {
     mode = 'config';
-  } else if (input.startsWith('interface ') && mode === 'config') {
+  }
+  else if (matchCommand(input, 'interface') && mode === 'config') {
     const intf = input.split(' ')[1];
-    if (config.interfaces[intf]) {
-      currentInterface = intf;
+    const found = Object.keys(config.interfaces).find(i => i.toLowerCase().startsWith(intf.toLowerCase()));
+    if (found) {
+      currentInterface = found;
       mode = 'interface';
     } else {
       print('% Invalid interface');
     }
-  } else if (input.startsWith('ip address') && mode === 'interface' && currentInterface) {
-    const ip = input.split(' ')[2];
+  }
+  else if (input.startsWith('ip address') && mode === 'interface' && currentInterface) {
+    const parts = input.split(' ');
+    const ip = parts[2];
     config.interfaces[currentInterface].ip = ip;
     print(`* IP address set: ${ip}`);
-  } else if ((input === 'no shutdown' || input === 'no shut') && mode === 'interface') {
+  }
+  else if ((matchCommand(input, 'no shutdown') || input === 'no shut') && mode === 'interface') {
     config.interfaces[currentInterface].up = true;
     print(`* ${currentInterface} is now up`);
-  } else if (input === 'exit') {
+  }
+  else if (matchCommand(input, 'exit')) {
     if (mode === 'interface') {
       mode = 'config';
       currentInterface = null;
@@ -97,20 +115,82 @@ function handleCommand(e) {
     } else if (mode === 'enable') {
       mode = 'exec';
     }
-  } else if (input === 'show ip interface brief') {
+  }
+  else if (input === 'show ip interface brief') {
     print('Interface\t\tIP Address\t\tStatus');
     for (const [intf, conf] of Object.entries(config.interfaces)) {
       print(`${intf}\t${conf.ip || 'unassigned'}\t\t${conf.up ? 'up' : 'down'}`);
     }
-  } else {
-    print('% Unknown command');
+  }
+  else if (input === 'show running-config' || input === 'show run') {
+    print(`hostname ${config.hostname}`);
+    for (const [intf, conf] of Object.entries(config.interfaces)) {
+      print(`interface ${intf}`);
+      if (conf.ip) print(` ip address ${conf.ip}`);
+      if (conf.up) print(` no shutdown`);
+    }
+  }
+  else if (input.startsWith('hostname ') && mode === 'config') {
+    const newName = input.split(' ')[1];
+    config.hostname = newName;
+    updatePrompt();
+  }
+  else if (input.startsWith('ping ')) {
+    const ip = input.split(' ')[1];
+    let found = false;
+    for (const dev of Object.values(devices)) {
+      for (const intf of Object.values(dev.interfaces)) {
+        if (intf.ip === ip && intf.up) {
+          found = true;
+        }
+      }
+    }
+    if (found) {
+      print(`Reply from ${ip}: bytes=32 time<1ms TTL=64`);
+    } else {
+      print(`Request timed out.`);
+    }
+  }
+  else {
+    print('% Unknown command or incorrect mode');
   }
 
   updatePrompt();
   updateProgress();
 }
 
-// Topology rendering for exercises
+// History navigation
+commandInput.addEventListener('keydown', function (e) {
+  if (e.key === 'ArrowUp') {
+    if (historyIndex > 0) {
+      historyIndex--;
+      commandInput.value = history[historyIndex];
+    }
+  } else if (e.key === 'ArrowDown') {
+    if (historyIndex < history.length - 1) {
+      historyIndex++;
+      commandInput.value = history[historyIndex];
+    } else {
+      commandInput.value = '';
+    }
+  }
+});
+
+// Tab completion
+commandInput.addEventListener('keydown', function (e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const inputVal = commandInput.value.trim();
+    const partial = inputVal.split(' ')[0];
+    const commands = ['enable', 'configure terminal', 'interface', 'ip address', 'no shutdown', 'exit', 'show ip interface brief', 'show running-config', 'hostname', 'ping'];
+    const match = commands.find(cmd => cmd.startsWith(partial));
+    if (match) {
+      commandInput.value = match;
+    }
+  }
+});
+
+// Topology drawing (for exercises)
 function drawTopology() {
   const svg = document.getElementById('network-svg');
   if (!svg) return;
@@ -154,7 +234,7 @@ function drawTopology() {
   }
 }
 
-// Progress tracking (for exercises only)
+// Task progress (for exercises only)
 function updateProgress() {
   const taskText = document.getElementById('taskText');
   const taskProgress = document.getElementById('taskProgress');
@@ -169,7 +249,7 @@ function updateProgress() {
   taskProgress.textContent = `Completed: ${percent}%`;
 }
 
-// Called from theory pages
+// Run exercise from external page
 function startExercise(exercise) {
   currentExercise = exercise;
   devices = exercise.devices();
@@ -203,7 +283,7 @@ function startExercise(exercise) {
   updateProgress();
 }
 
-// Auto-start exercise if only one is defined
+// Auto-start single exercise if loaded
 window.addEventListener('load', () => {
   if (exerciseList.length === 1) {
     startExercise(exerciseList[0]);
