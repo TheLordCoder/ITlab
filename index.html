@@ -1,10 +1,3 @@
-<!-- Tämä on tulevan Cisco CLI -simulaattorin perusta, joka sisältää:
-- Tehtävärakenne ja palaute (2)
-- Show-komennot: show ip interface brief (3)
-- Useita laitteita (6)
-- CLI-apua (7)
-- Graafinen topologia (8)
--->
 <!DOCTYPE html>
 <html lang="fi">
 <head>
@@ -33,12 +26,14 @@
     <div id="tasks"></div>
     <h3>Laitteet</h3>
     <div class="device" onclick="selectDevice('R1')">R1 (reititin)</div>
+    <div class="device" onclick="selectDevice('R2')">R2 (reititin)</div>
     <div class="device" onclick="selectDevice('S1')">S1 (switch)</div>
+    <div class="device" onclick="selectDevice('PC1')">PC1</div>
   </div>
 
   <div id="main">
     <div id="topology">
-      Topologia: R1 <--> S1
+      Topologia: R1 <--> S1 <--> R2 <--> PC1
     </div>
 
     <div id="terminal">
@@ -58,20 +53,31 @@
 
     let currentDevice = 'R1';
     let mode = 'exec';
+    let currentInterface = null;
+
     let deviceConfigs = {
       R1: {
         hostname: 'R1',
-        interfaces: { 'GigabitEthernet0/1': { ip: '192.168.1.1', up: true } }
+        interfaces: { 'GigabitEthernet0/1': { ip: null, up: false } }
+      },
+      R2: {
+        hostname: 'R2',
+        interfaces: { 'GigabitEthernet0/1': { ip: null, up: false } }
       },
       S1: {
         hostname: 'S1',
         interfaces: { 'FastEthernet0/1': { ip: null, up: false }, 'Vlan1': { ip: '192.168.1.2', up: true } }
+      },
+      PC1: {
+        hostname: 'PC1',
+        interfaces: { 'Ethernet0': { ip: '192.168.1.100', up: true } }
       }
     };
 
     const tasks = [
+      { text: 'Anna R1:lle IP osoite Gi0/1:lle ja käynnistä se', check: () => deviceConfigs['R1'].interfaces['GigabitEthernet0/1'].ip && deviceConfigs['R1'].interfaces['GigabitEthernet0/1'].up },
       { text: 'Tarkista onko Vlan1 aktiivinen S1:llä', check: () => deviceConfigs['S1'].interfaces['Vlan1'].up },
-      { text: 'Varmista, että R1:n Gi0/1 on UP', check: () => deviceConfigs['R1'].interfaces['GigabitEthernet0/1'].up }
+      { text: 'Varmista, että PC1:n Ethernet0 on UP', check: () => deviceConfigs['PC1'].interfaces['Ethernet0'].up }
     ];
 
     function renderTasks() {
@@ -93,8 +99,9 @@
 
     function selectDevice(name) {
       currentDevice = name;
-      promptText.textContent = `${name}>`;
+      promptText.textContent = `${deviceConfigs[name].hostname}>`;
       mode = 'exec';
+      currentInterface = null;
       print(`* Yhdistetty laitteeseen ${name}`);
     }
 
@@ -104,18 +111,52 @@
         commandInput.value = '';
         print(`${promptText.textContent} ${input}`);
 
-        if (input === 'show ip interface brief') {
-          const dev = deviceConfigs[currentDevice];
-          print('Interface		IP-Address	Status');
-          for (const [intf, conf] of Object.entries(dev.interfaces)) {
+        const config = deviceConfigs[currentDevice];
+
+        if (input === 'enable') {
+          mode = 'enable';
+          promptText.textContent = `${config.hostname}#`;
+        } else if (input === 'configure terminal' && mode === 'enable') {
+          mode = 'config';
+          promptText.textContent = `${config.hostname}(config)#`;
+        } else if (input.startsWith('interface ') && mode === 'config') {
+          const intf = input.split(' ')[1];
+          if (config.interfaces[intf]) {
+            currentInterface = intf;
+            mode = 'interface';
+            promptText.textContent = `${config.hostname}(config-if)#`;
+          } else {
+            print('% Invalid interface');
+          }
+        } else if (input.startsWith('ip address') && mode === 'interface' && currentInterface) {
+          const parts = input.split(' ');
+          const ip = parts[2];
+          config.interfaces[currentInterface].ip = ip;
+          print(`* IP-osoite asetettu: ${ip}`);
+        } else if ((input === 'no shutdown' || input === 'no shut') && mode === 'interface' && currentInterface) {
+          config.interfaces[currentInterface].up = true;
+          print(`* ${currentInterface} aktivoitu`);
+        } else if (input === 'exit') {
+          if (mode === 'interface') {
+            mode = 'config';
+            currentInterface = null;
+            promptText.textContent = `${config.hostname}(config)#`;
+          } else if (mode === 'config') {
+            mode = 'enable';
+            promptText.textContent = `${config.hostname}#`;
+          } else if (mode === 'enable') {
+            mode = 'exec';
+            promptText.textContent = `${config.hostname}>`;
+          }
+        } else if (input === 'show ip interface brief') {
+          print('Interface\t	IP-Address\tStatus');
+          for (const [intf, conf] of Object.entries(config.interfaces)) {
             print(`${intf}\t${conf.ip || 'unassigned'}\t${conf.up ? 'up' : 'administratively down'}`);
           }
         } else if (input === '?') {
           print('Saatavilla komennot:');
+          print('- enable, configure terminal, interface, ip address, no shutdown, exit');
           print('- show ip interface brief');
-          print('- exit');
-        } else if (input === 'exit') {
-          print('* Poistuttiin laitteesta.');
         } else {
           print('% Tuntematon komento');
         }
