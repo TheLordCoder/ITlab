@@ -1,150 +1,149 @@
-let mode = 'exec';
-let interfaceConfigured = false;
-let interfaceUp = false;
-let hostnameChanged = false;
-
-const outputArea = document.getElementById('output');
 const promptText = document.getElementById('promptText');
-const inputField = document.getElementById('commandInput');
-const taskStatus = document.getElementById('taskStatus');
-const taskText = document.getElementById('taskText');
-const interfaceDiv = document.getElementById('interface');
+const commandInput = document.getElementById('commandInput');
+const output = document.getElementById('output');
 
-const tasks = [
-  {
-    description: "Konfiguroi GigabitEthernet0/1 IP-osoitteella 192.168.1.1/24 ja aktivoi se.",
-    check: () => interfaceConfigured && interfaceUp
-  },
-  {
-    description: "Muuta reitittimen nimeksi 'CoreRouter'.",
-    check: () => hostnameChanged
-  }
-];
+let mode = 'exec'; // Tilat: exec, enable, config, interface
+let hostname = 'Router';
+let interfaceUp = false;
+let ipAssigned = false;
 
-let currentTaskIndex = 0;
+const commands = {
+  'enable': ['en'],
+  'configure terminal': ['conf t'],
+  'interface GigabitEthernet0/1': ['int gi0/1'],
+  'ip address 192.168.1.1 255.255.255.0': [],
+  'no shutdown': ['no shut'],
+  'exit': [],
+  'hostname CoreRouter': []
+};
 
-function loadTask(index) {
-  const task = tasks[index];
-  taskText.textContent = task.description;
-  taskStatus.innerHTML = 'Suoritus: <span class="pending">Keskeneräinen</span>';
-}
-
-function completeTask() {
-  taskStatus.innerHTML = 'Suoritus: <span class="done">Valmis</span>';
-  if (currentTaskIndex + 1 < tasks.length) {
-    const next = confirm("Tehtävä valmis! Haluatko siirtyä seuraavaan?");
-    if (next) {
-      currentTaskIndex++;
-      resetState();
-      loadTask(currentTaskIndex);
-    }
-  } else {
-    alert("Kaikki tehtävät suoritettu!");
+function updatePrompt() {
+  switch (mode) {
+    case 'exec': promptText.textContent = `${hostname}>`; break;
+    case 'enable': promptText.textContent = `${hostname}#`; break;
+    case 'config': promptText.textContent = `${hostname}(config)#`; break;
+    case 'interface': promptText.textContent = `${hostname}(config-if)#`; break;
   }
 }
 
-function updateTaskStatus() {
-  if (tasks[currentTaskIndex].check()) {
-    completeTask();
+function printOutput(line) {
+  const lineDiv = document.createElement('div');
+  lineDiv.textContent = line;
+  output.prepend(lineDiv);
+}
+
+function normalize(cmd) {
+  return cmd.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function matchCommand(cmd) {
+  const input = normalize(cmd);
+  for (const fullCmd in commands) {
+    if (normalize(fullCmd) === input) return fullCmd;
+    if (commands[fullCmd].some(short => normalize(short) === input)) return fullCmd;
   }
+  return null;
 }
 
-function resetState() {
-  mode = 'exec';
-  interfaceConfigured = false;
-  interfaceUp = false;
-  hostnameChanged = false;
-  promptText.textContent = 'Router>';
-  interfaceDiv.className = 'interface down';
-  outputArea.innerHTML = '';
+function autoComplete(inputValue) {
+  const matches = Object.keys(commands).filter(c =>
+    c.toLowerCase().startsWith(inputValue.toLowerCase()));
+  return matches.length === 1 ? matches[0] : null;
 }
 
-inputField.addEventListener('keydown', function (e) {
-  if (e.key === 'Enter') {
-    const command = inputField.value.trim();
-    if (command !== '') {
-      processCommand(command);
-      inputField.value = '';
+function processCommand(input) {
+  const matched = matchCommand(input);
+  printOutput(`${promptText.textContent} ${input}`);
+
+  if (!matched) {
+    printOutput('% Unknown command or invalid input');
+    return;
+  }
+
+  switch (matched) {
+    case 'enable':
+      mode = 'enable';
+      break;
+
+    case 'configure terminal':
+      if (mode !== 'enable') {
+        printOutput('% Command only available in privileged EXEC mode');
+        return;
+      }
+      mode = 'config';
+      break;
+
+    case 'interface GigabitEthernet0/1':
+      if (mode !== 'config') {
+        printOutput('% Command only available in global configuration mode');
+        return;
+      }
+      mode = 'interface';
+      break;
+
+    case 'ip address 192.168.1.1 255.255.255.0':
+      if (mode !== 'interface') {
+        printOutput('% Command only available in interface configuration mode');
+        return;
+      }
+      ipAssigned = true;
+      printOutput('');
+      break;
+
+    case 'no shutdown':
+      if (mode !== 'interface') {
+        printOutput('% Command only available in interface configuration mode');
+        return;
+      }
+      interfaceUp = true;
+      printOutput('');
+      break;
+
+    case 'exit':
+      if (mode === 'interface') {
+        mode = 'config';
+      } else if (mode === 'config') {
+        mode = 'enable';
+      } else if (mode === 'enable') {
+        mode = 'exec';
+      }
+      break;
+
+    case 'hostname CoreRouter':
+      if (mode !== 'config') {
+        printOutput('% Command only available in global configuration mode');
+        return;
+      }
+      hostname = 'CoreRouter';
+      break;
+
+    default:
+      printOutput('% Feature not yet implemented');
+  }
+
+  updatePrompt();
+}
+
+// TAB-täydennys
+commandInput.addEventListener('keydown', function (e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const suggestion = autoComplete(commandInput.value);
+    if (suggestion) {
+      commandInput.value = suggestion;
     }
   }
 });
 
-function updateInterfaceVisual() {
-  if (interfaceUp) {
-    interfaceDiv.classList.remove('down');
-    interfaceDiv.classList.add('up');
-  } else {
-    interfaceDiv.classList.remove('up');
-    interfaceDiv.classList.add('down');
+// ENTER-komento
+commandInput.addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    const value = commandInput.value.trim();
+    if (value !== '') {
+      processCommand(value);
+      commandInput.value = '';
+    }
   }
-}
+});
 
-function processCommand(cmd) {
-  const currentPrompt = promptText.textContent;
-  outputArea.innerHTML += `<div>${currentPrompt} ${cmd}</div>`;
-  let response = '';
-
-  switch (mode) {
-    case 'exec':
-      if (cmd === 'enable') {
-        mode = 'enable';
-        promptText.textContent = 'Router#';
-      } else {
-        response = '% Invalid command at this level.';
-      }
-      break;
-    case 'enable':
-      if (cmd === 'configure terminal') {
-        mode = 'config';
-        promptText.textContent = 'Router(config)#';
-      } else if (cmd === 'disable') {
-        mode = 'exec';
-        promptText.textContent = 'Router>';
-      } else {
-        response = '% Unknown command.';
-      }
-      break;
-    case 'config':
-      if (cmd === 'interface GigabitEthernet0/1') {
-        mode = 'interface';
-        promptText.textContent = 'Router(config-if)#';
-      } else if (cmd.startsWith('hostname')) {
-        const newName = cmd.split(' ')[1];
-        promptText.textContent = `${newName}#`;
-        hostnameChanged = (newName === 'CoreRouter');
-        response = '';
-      } else if (cmd === 'exit') {
-        mode = 'enable';
-        promptText.textContent = 'Router#';
-      } else {
-        response = '% Invalid configuration command.';
-      }
-      break;
-    case 'interface':
-      if (cmd.startsWith('ip address 192.168.1.1 255.255.255.0')) {
-        interfaceConfigured = true;
-        response = 'IP address assigned.';
-      } else if (cmd === 'no shutdown') {
-        interfaceUp = true;
-        response = 'Interface activated.';
-        updateInterfaceVisual();
-      } else if (cmd === 'exit') {
-        mode = 'config';
-        promptText.textContent = 'Router(config)#';
-      } else {
-        response = '% Unknown interface command.';
-      }
-      break;
-    default:
-      response = '% Error in mode handling.';
-  }
-
-  if (response) {
-    outputArea.innerHTML += `<div>${response}</div>`;
-  }
-
-  updateTaskStatus();
-  outputArea.scrollTop = outputArea.scrollHeight;
-}
-
-loadTask(currentTaskIndex);
+updatePrompt();
