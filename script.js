@@ -1,4 +1,4 @@
-// Device templates
+// Global exercise system
 const deviceTemplates = {
   router: {
     type: 'router',
@@ -12,73 +12,107 @@ const deviceTemplates = {
   }
 };
 
-let exerciseOptions = [];
+let exerciseList = [];
 function registerExercise(exercise) {
-  exerciseOptions.push(exercise);
+  exerciseList.push(exercise);
 }
 window.registerExercise = registerExercise;
 
 function createDevice(type, x, y, name) {
-  const template = JSON.parse(JSON.stringify(deviceTemplates[type]));
-  return { ...template, x, y, hostname: name };
+  const base = JSON.parse(JSON.stringify(deviceTemplates[type]));
+  return { ...base, x, y, hostname: name };
 }
 
-let currentDevice = null;
-let mode = 'exec';
-let currentInterface = null;
-let currentTask = null;
+// State
 let devices = {};
 let links = [];
+let currentDevice = null;
+let currentExercise = null;
+let mode = 'exec';
+let currentInterface = null;
 
-function renderExerciseMenu() {
-  const app = document.getElementById('app');
-  const container = document.createElement('div');
-  container.id = 'exerciseMenu';
-  container.style.padding = '20px';
-  container.innerHTML = '<h2>Select an Exercise</h2>';
-
-  exerciseOptions.forEach((ex, i) => {
-    const btn = document.createElement('button');
-    btn.textContent = ex.name;
-    btn.onclick = () => startExercise(i);
-    btn.style.margin = '10px';
-    container.appendChild(btn);
-  });
-  app.innerHTML = '';
-  app.appendChild(container);
+// Utility
+function print(line) {
+  const div = document.createElement('div');
+  div.textContent = line;
+  output.prepend(div);
 }
 
-function startExercise(index) {
-  const app = document.getElementById('app');
-  currentTask = exerciseOptions[index];
-  devices = currentTask.devices();
-  links = currentTask.links;
+function updatePrompt() {
+  const d = devices[currentDevice];
+  if (!d) return;
+  const base = d.hostname;
+  if (mode === 'exec') promptText.textContent = `${base}>`;
+  else if (mode === 'enable') promptText.textContent = `${base}#`;
+  else if (mode === 'config') promptText.textContent = `${base}(config)#`;
+  else if (mode === 'interface') promptText.textContent = `${base}(config-if)#`;
+}
 
-  app.innerHTML = `
-    <div id="topology">
-      <div id="taskbar">
-        <span id="taskText"></span>
-        <span id="taskProgress"></span>
-      </div>
-      <svg id="network-svg" width="100%" height="100%"></svg>
-    </div>
-    <div id="cli-panel">
-      <div id="cli-header">
-        <span id="cli-title">CLI</span>
-        <button onclick="closeCli()">Close</button>
-      </div>
-      <div id="output"></div>
-      <div id="inputArea">
-        <span id="promptText"></span>
-        <input type="text" id="commandInput" autocomplete="off" />
-      </div>
-    </div>
-  `;
-  document.getElementById('commandInput').addEventListener('keydown', handleCommand);
-  drawTopology();
+// CLI Panel
+function openCli(name) {
+  currentDevice = name;
+  mode = 'exec';
+  currentInterface = null;
+  document.getElementById('cli-panel').style.display = 'flex';
+  output.innerHTML = '';
+  print(`* Connected to ${name}`);
+  updatePrompt();
+}
+
+function closeCli() {
+  document.getElementById('cli-panel').style.display = 'none';
+}
+
+// Command handler
+function handleCommand(e) {
+  if (e.key !== 'Enter') return;
+  const input = commandInput.value.trim();
+  commandInput.value = '';
+  const config = devices[currentDevice];
+  print(`${promptText.textContent} ${input}`);
+
+  if (input === 'enable') {
+    mode = 'enable';
+  } else if (input === 'configure terminal' && mode === 'enable') {
+    mode = 'config';
+  } else if (input.startsWith('interface ') && mode === 'config') {
+    const intf = input.split(' ')[1];
+    if (config.interfaces[intf]) {
+      currentInterface = intf;
+      mode = 'interface';
+    } else {
+      print('% Invalid interface');
+    }
+  } else if (input.startsWith('ip address') && mode === 'interface' && currentInterface) {
+    const ip = input.split(' ')[2];
+    config.interfaces[currentInterface].ip = ip;
+    print(`* IP address set: ${ip}`);
+  } else if ((input === 'no shutdown' || input === 'no shut') && mode === 'interface') {
+    config.interfaces[currentInterface].up = true;
+    print(`* ${currentInterface} is now up`);
+  } else if (input === 'exit') {
+    if (mode === 'interface') {
+      mode = 'config';
+      currentInterface = null;
+    } else if (mode === 'config') {
+      mode = 'enable';
+    } else if (mode === 'enable') {
+      mode = 'exec';
+    }
+  } else if (input === 'show ip interface brief') {
+    print('Interface\t\tIP Address\t\tStatus');
+    for (const [intf, conf] of Object.entries(config.interfaces)) {
+      print(`${intf}\t${conf.ip || 'unassigned'}\t\t${conf.up ? 'up' : 'down'}`);
+    }
+  } else {
+    print('% Unknown command');
+  }
+
+  updatePrompt();
   updateProgress();
 }
 
+// Drawing
 function drawTopology() {
   const svg = document.getElementById('network-svg');
   svg.innerHTML = '';
@@ -92,23 +126,26 @@ function drawTopology() {
     line.setAttribute('y2', db.y);
     svg.appendChild(line);
   });
+
   for (const [name, dev] of Object.entries(devices)) {
+    const node = dev.shape === 'circle'
+      ? document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+      : document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+
     if (dev.shape === 'circle') {
-      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circle.setAttribute('cx', dev.x);
-      circle.setAttribute('cy', dev.y);
-      circle.setAttribute('r', 20);
-      circle.addEventListener('click', () => openCli(name));
-      svg.appendChild(circle);
+      node.setAttribute('cx', dev.x);
+      node.setAttribute('cy', dev.y);
+      node.setAttribute('r', 20);
     } else {
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rect.setAttribute('x', dev.x - 20);
-      rect.setAttribute('y', dev.y - 20);
-      rect.setAttribute('width', 40);
-      rect.setAttribute('height', 40);
-      rect.addEventListener('click', () => openCli(name));
-      svg.appendChild(rect);
+      node.setAttribute('x', dev.x - 20);
+      node.setAttribute('y', dev.y - 20);
+      node.setAttribute('width', 40);
+      node.setAttribute('height', 40);
     }
+
+    node.addEventListener('click', () => openCli(name));
+    svg.appendChild(node);
+
     const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     label.setAttribute('x', dev.x - 10);
     label.setAttribute('y', dev.y + 35);
@@ -117,83 +154,59 @@ function drawTopology() {
   }
 }
 
+// Progress
 function updateProgress() {
   const taskText = document.getElementById('taskText');
   const taskProgress = document.getElementById('taskProgress');
-  const total = currentTask.tasks.length;
-  const completed = currentTask.tasks.filter(t => t.check(devices)).length;
-  taskText.textContent = currentTask.tasks.map(t => t.description).join(' | ');
-  taskProgress.textContent = `Completed: ${(completed / total * 100).toFixed(0)}%`;
+
+  if (!currentExercise) return;
+
+  const tasks = currentExercise.tasks;
+  const total = tasks.length;
+  const passed = tasks.filter(t => t.check(devices)).length;
+  const percent = Math.round((passed / total) * 100);
+
+  taskText.textContent = tasks.map(t => t.description).join(' | ');
+  taskProgress.textContent = `Completed: ${percent}%`;
 }
 
-function openCli(name) {
-  currentDevice = name;
-  document.getElementById('cli-panel').style.display = 'flex';
-  promptText.textContent = `${devices[name].hostname}>`;
-  mode = 'exec';
-  currentInterface = null;
-  output.innerHTML = '';
-  print(`* Connected to ${name}`);
-}
+// Exercise Starter (called from theory pages)
+function startExercise(exercise) {
+  currentExercise = exercise;
+  devices = exercise.devices();
+  links = exercise.links;
 
-function closeCli() {
-  document.getElementById('cli-panel').style.display = 'none';
-}
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div id="topology">
+      <div id="taskbar">
+        <span id="taskText"></span>
+        <span id="taskProgress"></span>
+      </div>
+      <svg id="network-svg"></svg>
+    </div>
+    <div id="cli-panel">
+      <div id="cli-header">
+        <span id="cli-title">CLI</span>
+        <button onclick="closeCli()">Close</button>
+      </div>
+      <div id="output"></div>
+      <div id="inputArea">
+        <span id="promptText"></span>
+        <input type="text" id="commandInput" autocomplete="off" />
+      </div>
+    </div>
+  `;
 
-function print(line) {
-  const div = document.createElement('div');
-  div.textContent = line;
-  output.prepend(div);
-}
-
-function handleCommand(e) {
-  if (e.key !== 'Enter') return;
-  const input = commandInput.value.trim();
-  commandInput.value = '';
-  print(`${promptText.textContent} ${input}`);
-
-  const config = devices[currentDevice];
-
-  if (input === 'enable') {
-    mode = 'enable';
-    promptText.textContent = `${config.hostname}#`;
-  } else if (input === 'configure terminal' && mode === 'enable') {
-    mode = 'config';
-    promptText.textContent = `${config.hostname}(config)#`;
-  } else if (input.startsWith('interface ') && mode === 'config') {
-    const intf = input.split(' ')[1];
-    if (config.interfaces[intf]) {
-      currentInterface = intf;
-      mode = 'interface';
-      promptText.textContent = `${config.hostname}(config-if)#`;
-    } else {
-      print('% Invalid interface');
-    }
-  } else if (input.startsWith('ip address') && mode === 'interface' && currentInterface) {
-    const parts = input.split(' ');
-    const ip = parts[2];
-    config.interfaces[currentInterface].ip = ip;
-    print(`* IP address set: ${ip}`);
-  } else if ((input === 'no shutdown' || input === 'no shut') && mode === 'interface' && currentInterface) {
-    config.interfaces[currentInterface].up = true;
-    print(`* ${currentInterface} enabled`);
-  } else if (input === 'exit') {
-    if (mode === 'interface') {
-      mode = 'config';
-      currentInterface = null;
-      promptText.textContent = `${config.hostname}(config)#`;
-    } else if (mode === 'config') {
-      mode = 'enable';
-      promptText.textContent = `${config.hostname}#`;
-    } else if (mode === 'enable') {
-      mode = 'exec';
-      promptText.textContent = `${config.hostname}>`;
-    }
-  } else {
-    print('% Unknown command');
-  }
-
+  document.getElementById('commandInput').addEventListener('keydown', handleCommand);
+  drawTopology();
+  updatePrompt();
   updateProgress();
 }
 
-document.addEventListener('DOMContentLoaded', renderExerciseMenu);
+// Optional: auto-start first exercise if only one loaded
+window.addEventListener('load', () => {
+  if (exerciseList.length === 1) {
+    startExercise(exerciseList[0]);
+  }
+});
