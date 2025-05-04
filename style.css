@@ -1,41 +1,80 @@
 body {
-  margin: 0;
   font-family: monospace;
-  background-color: black;
-  color: white;
+  background: #111;
+  color: #0f0;
+  margin: 0;
+  display: flex;
 }
 
-#terminal {
+#sidebar {
+  width: 250px;
+  background: #222;
+  padding: 10px;
+  border-right: 2px solid #333;
+}
+
+#main {
+  flex-grow: 1;
   display: flex;
   flex-direction: column;
   height: 100vh;
+}
+
+#topology {
+  background: #000;
+  color: white;
   padding: 10px;
-  box-sizing: border-box;
+  border-bottom: 1px solid #444;
+}
+
+.device {
+  display: inline-block;
+  padding: 10px;
+  margin: 5px;
+  border: 1px solid #0f0;
+  cursor: pointer;
+}
+
+#terminal {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  overflow: hidden;
 }
 
 #output {
   flex-grow: 1;
   overflow-y: auto;
   display: flex;
-  flex-direction: column-reverse; /* Uusin alimpana */
+  flex-direction: column-reverse;
 }
 
 #inputArea {
   display: flex;
-  align-items: center;
 }
 
 #promptText {
   margin-right: 5px;
-  color: white;
 }
 
 #commandInput {
-  background-color: black;
-  color: white;
+  flex-grow: 1;
+  background: black;
+  color: #0f0;
   border: none;
   outline: none;
-  width: 100%;
-  font-family: monospace;
   font-size: 1em;
+}
+
+.task {
+  margin-bottom: 10px;
+}
+
+.done {
+  color: lime;
+}
+
+.pending {
+  color: orange;
 }
