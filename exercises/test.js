@@ -1,4 +1,4 @@
-registerExercise({
+1registerExercise({
   name: "Basic Router-Switch Network",
   devices: () => ({
     R1: createDevice("router", 100, 150, "R1"),
