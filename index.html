@@ -3,38 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verkkolaite CLI -simulaattori</title>
+  <title>Cisco CLI Simulaattori</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="taskArea">
-  <h2>Harjoitustehtävä</h2>
-  <p id="taskText"></p>
-  <p id="taskStatus">Suoritus: <span class="pending">Keskeneräinen</span></p>
-</div>
-  <div id="container">
-    <div id="taskArea">
-      <h2>Harjoitustehtävä</h2>
-      <p>Konfiguroi <strong>GigabitEthernet0/1</strong> IP-osoitteella <strong>192.168.1.1/24</strong> ja aktivoi se.</p>
-      <p id="taskStatus">Suoritus: <span class="pending">Keskeneräinen</span></p>
-    </div>
-
-    <div id="visualArea">
-      <h2>Verkko</h2>
-      <div id="device">
-        <div id="interface" class="interface down">Gi0/1</div>
-      </div>
-    </div>
-
-    <div id="terminal">
-      <div id="output"></div>
-      <div id="prompt">
-        <span id="promptText">Router></span>
-        <input type="text" id="commandInput" autofocus />
-      </div>
+  <div id="terminal">
+    <div id="output"></div>
+    <div id="inputArea">
+      <span id="promptText">Router></span>
+      <input type="text" id="commandInput" autocomplete="off" />
     </div>
   </div>
-
   <script src="script.js"></script>
 </body>
 </html>
