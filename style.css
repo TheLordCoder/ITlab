@@ -1,65 +1,105 @@
 body {
   margin: 0;
   font-family: monospace;
-  background-color: #e8f0f8;
-  overflow: hidden;
+  background-color: #f0f2f5;
 }
 
 #app {
-  display: flex;
   height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#exerciseMenu {
+  padding: 2rem;
+}
+
+#exerciseMenu h2 {
+  margin-bottom: 1rem;
+}
+
+#exerciseMenu button {
+  padding: 10px 20px;
+  font-size: 1rem;
+  margin: 5px;
+  border: none;
+  background-color: #0077cc;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#exerciseMenu button:hover {
+  background-color: #005fa3;
 }
 
 #topology {
   flex: 1;
   position: relative;
-  background-color: #ffffff;
-  border-right: 2px solid #ccc;
+  background: #fff;
+  border-bottom: 1px solid #ccc;
+}
+
+#taskbar {
+  padding: 10px;
+  background-color: #eee;
+  border-bottom: 1px solid #ccc;
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
 }
 
 #cli-panel {
-  width: 400px;
   display: flex;
   flex-direction: column;
-  background-color: #111;
+  background: #111;
   color: #0f0;
+  height: 300px;
   padding: 10px;
+  font-size: 14px;
 }
 
 #cli-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #222;
-  padding: 5px;
+  background: #222;
+  padding: 5px 10px;
   margin-bottom: 10px;
 }
 
 #cli-header button {
-  background: #333;
-  color: #fff;
+  background: #444;
+  color: white;
   border: none;
-  padding: 5px;
+  padding: 5px 10px;
   cursor: pointer;
+  border-radius: 4px;
+}
+
+#cli-header button:hover {
+  background: #666;
 }
 
 #output {
   flex-grow: 1;
-  overflow-y: auto;
-  background-color: black;
+  background: black;
   padding: 10px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column-reverse;
 }
 
 #inputArea {
   display: flex;
-  background-color: #000;
-  padding: 5px;
+  align-items: center;
+  padding-top: 5px;
+  border-top: 1px solid #333;
 }
 
 #promptText {
   margin-right: 5px;
+  white-space: nowrap;
 }
 
 #commandInput {
@@ -69,22 +109,28 @@ body {
   border: none;
   outline: none;
   font-size: 1em;
+  padding: 5px;
+}
+
+svg {
+  width: 100%;
+  height: 100%;
+}
+
+svg circle,
+svg rect {
+  cursor: pointer;
+  stroke: #222;
+  stroke-width: 2px;
+  fill: #66aaff;
 }
 
 svg text {
-  font-family: monospace;
   font-size: 12px;
   fill: #000;
 }
 
-svg circle {
-  cursor: pointer;
-  fill: #68a;
-  stroke: #333;
-  stroke-width: 1.5px;
-}
-
 svg line {
-  stroke: #aaa;
+  stroke: #888;
   stroke-width: 2px;
 }
