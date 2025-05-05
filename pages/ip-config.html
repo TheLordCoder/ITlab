@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Exercise – IP Configuration</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; }
+    #cli-output { background: #000; color: #0f0; padding: 10px; height: 300px; overflow-y: scroll; white-space: pre; }
+    #cli-input { width: 100%; padding: 10px; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <h1>Exercise: Configure IP Address</h1>
+  <p>
+    Use the CLI below to configure <code>Gig0/0</code> with IP address <code>192.168.1.1</code> and bring the interface up.
+  </p>
+
+  <div id="cli-output"></div>
+  <input id="cli-input" type="text" placeholder="Enter Cisco commands here" autofocus />
+
+  <script type="module">
+    import { Network, Router } from '../netSimEngine.js';
+
+    const net = new Network();
+    const r1 = new Router("Router1");
+    net.addDevice(r1);
+
+    const output = document.getElementById("cli-output");
+    const input = document.getElementById("cli-input");
+
+    function appendOutput(text) {
+      output.textContent += text + '\\n';
+      output.scrollTop = output.scrollHeight;
+    }
+
+    appendOutput(r1.prompt());
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const cmd = input.value;
+        appendOutput(cmd);
+        const result = net.sendCommand("Router1", cmd);
+        if (result) appendOutput(result);
+        appendOutput(r1.prompt());
+        input.value = "";
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        input.value = net.autocomplete("Router1", input.value);
+      }
+    });
+  </script>
+</body>
+</html>
