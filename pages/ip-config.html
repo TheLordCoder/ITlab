@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -32,35 +30,12 @@ show ip int brief
   <input id="cli-input" type="text" placeholder="Enter Cisco commands here" autofocus />
 
   <script type="module">
-    import { Network, Router } from '../netSimEngine.js';
+    import { startCLISession } from '../netSimEngine.js';
 
-    const net = new Network();
-    const r1 = new Router("Router1");
-    net.addDevice(r1);
+    const output = document.getElementById('cli-output');
+    const input = document.getElementById('cli-input');
 
-    const output = document.getElementById("cli-output");
-    const input = document.getElementById("cli-input");
-
-    function appendOutput(text) {
-      output.innerHTML += text.replace(/\n/g, '<br>') + '<br>';
-      output.scrollTop = output.scrollHeight;
-    }
-
-    appendOutput(r1.prompt());
-
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        const cmd = input.value;
-        appendOutput(r1.prompt() + ' ' + cmd);
-        const result = net.sendCommand("Router1", cmd);
-        if (result) appendOutput(result);
-        appendOutput(r1.prompt());
-        input.value = "";
-      } else if (e.key === "Tab") {
-        e.preventDefault();
-        input.value = net.autocomplete("Router1", input.value);
-      }
-    });
+    startCLISession(output, input);
   </script>
 </body>
 </html>
