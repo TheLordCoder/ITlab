@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,7 +7,7 @@
   <title>Exercise – IP Configuration</title>
   <style>
     body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; }
-    #cli-output { background: #000; color: #0f0; padding: 10px; height: 300px; overflow-y: scroll; white-space: pre; }
+    #cli-output { background: #000; color: #0f0; padding: 10px; height: 300px; overflow-y: scroll; white-space: pre-wrap; }
     #cli-input { width: 100%; padding: 10px; font-family: monospace; }
   </style>
 </head>
@@ -13,7 +15,18 @@
   <h1>Exercise: Configure IP Address</h1>
   <p>
     Use the CLI below to configure <code>Gig0/0</code> with IP address <code>192.168.1.1</code> and bring the interface up.
+    Try using commands like:
   </p>
+  <pre>
+enable
+conf t
+interface Gig0/0
+ip address 192.168.1.1
+no shutdown
+exit
+exit
+show ip int brief
+  </pre>
 
   <div id="cli-output"></div>
   <input id="cli-input" type="text" placeholder="Enter Cisco commands here" autofocus />
@@ -29,7 +42,7 @@
     const input = document.getElementById("cli-input");
 
     function appendOutput(text) {
-      output.textContent += text + '\\n';
+      output.innerHTML += text.replace(/\n/g, '<br>') + '<br>';
       output.scrollTop = output.scrollHeight;
     }
 
@@ -38,7 +51,7 @@
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         const cmd = input.value;
-        appendOutput(cmd);
+        appendOutput(r1.prompt() + ' ' + cmd);
         const result = net.sendCommand("Router1", cmd);
         if (result) appendOutput(result);
         appendOutput(r1.prompt());
