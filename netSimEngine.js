@@ -2,11 +2,10 @@ export class Router {
   constructor(name) {
     this.hostname = name;
     this.interfaces = {};
-    this.currentMode = "user"; // user, privileged, config, int
+    this.currentMode = "user";
     this.currentInterface = null;
     this.commandHistory = [];
     this.historyIndex = -1;
-    this.runningConfig = [];
   }
 
   commandTree = {
@@ -73,7 +72,7 @@ export class Router {
       if (path.length < tokens.length) continue;
       let match = true;
       for (let i = 0; i < tokens.length; i++) {
-        if (!path[i].startsWith(tokens[i])) {
+        if (!path[i] || !path[i].startsWith(tokens[i])) {
           match = false;
           break;
         }
@@ -90,9 +89,9 @@ export class Router {
 
   showIpInterfaceBrief() {
     const rows = Object.entries(this.interfaces).map(([name, data]) => {
-      return `${name}	${data.ip || "unassigned"}	${data.status}`;
+      return `${name}\t${data.ip || "unassigned"}\t${data.status}`;
     });
-    return ["Interface	IP Address	Status", ...rows].join("\n");
+    return ["Interface\tIP Address\tStatus", ...rows].join("\n");
   }
 
   showRunningConfig() {
@@ -283,4 +282,32 @@ export class Network {
     const device = this.devices[deviceName];
     return device.autocomplete(input);
   }
+}
+
+// ✅ Suoraan käyttöön otettava CLI-ympäristö
+export function startCLISession(outputEl, inputEl) {
+  const net = new Network();
+  const r1 = new Router("Router1");
+  net.addDevice(r1);
+
+  function appendOutput(text) {
+    outputEl.innerHTML += text.replace(/\n/g, '<br>') + '<br>';
+    outputEl.scrollTop = outputEl.scrollHeight;
+  }
+
+  appendOutput(r1.prompt());
+
+  inputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const cmd = inputEl.value;
+      appendOutput(r1.prompt() + ' ' + cmd);
+      const result = net.sendCommand("Router1", cmd);
+      if (result) appendOutput(result);
+      appendOutput(r1.prompt());
+      inputEl.value = "";
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      inputEl.value = net.autocomplete("Router1", inputEl.value);
+    }
+  });
 }
